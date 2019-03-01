@@ -1,4 +1,4 @@
-__kernel void matrix_sum(__global const double *A, __global const double *B, __global double *C) {
+__kernel void matrix_sum(__global const float *A, __global const float *B, __global float *C) {
  
     // Get the index of the current element to be processed
     int i = get_global_id(0);

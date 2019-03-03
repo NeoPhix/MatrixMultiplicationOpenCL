@@ -5,8 +5,14 @@
 
 struct Matrix
 {
-    Matrix() = delete;
+    Matrix() = default;
     Matrix(size_t w, size_t h, bool randomInit = false); 
+    Matrix(const Matrix& other) = default;
+    Matrix(Matrix&& other) = default;
+
+    Matrix& operator=(const Matrix& other) = default;
+    Matrix& operator=(Matrix&& other) = default;
+
     ~Matrix() = default;
 
     size_t width;

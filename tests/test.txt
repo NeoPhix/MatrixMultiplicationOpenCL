@@ -1,0 +1,19 @@
+../../kernels/naive_mult.cl
+nVidia GeForce GTX 750
+512
+1020
+
+500
+500
+500
+500
+
+### Template:
+# Kernel code address
+# GPU name
+# GPU cores count
+# GPU cores MHz
+# First matrix width
+# First matrix height
+# Second matrix width
+# Second matrix height

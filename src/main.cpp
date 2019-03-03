@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include <fstream>
 
 #include <CL/cl.hpp>
 #include <MatrixMultiplicationOpenCL/matrix.h>
@@ -17,44 +18,27 @@ struct GPUInfo
 };
 
 void showResults(const std::chrono::duration<long long, std::nano> time, 
-                 size_t operationsCount, 
-                 double norm,
-                 const GPUInfo& info)
-{
-    auto peac = info.coresCount * info.MHz / 1000;
-    std::cout << "Video Card: "                 << info.name       << std::endl 
-              << "Cores: "                      << info.coresCount << std::endl
-              << "MHz: "                        << info.MHz        << std::endl
-              << "Performance peac (GFLOP/s): " << peac            << std::endl << std::endl;
+                 size_t operationsCount, double norm, const GPUInfo& info);
 
-    constexpr double epsilon = 0.000001;
-    std::cout << "SQRT norm: " << norm << ". ";
-    if (norm < epsilon)
-        std::cout << "Result is correct" << std::endl;
-    else
-        std::cout << "Error! Result is not correct! Norm is greater than epsilon = " << epsilon << std::endl;
-
-    auto msCount = std::chrono::duration<double, std::milli>(time).count();
-    auto nsCount = std::chrono::duration<double, std::nano>(time).count();
-    auto performance = operationsCount / nsCount;
-
-    std::cout << "Multiplication time: " << msCount                   << " ms"        << std::endl;
-    std::cout << "Performance: "         << operationsCount / nsCount << " GFLOP/s"   << std::endl;
-    std::cout << "Theoretical peac: "    << performance / peac        << " % of peac" << std::endl;
-}
+bool initFromFile(const char* filename, std::string& kernelAddress, 
+                  GPUInfo& info, Matrix& A, Matrix& B);
 
 int main(int argc, char **argv)
 {
-    const GPUInfo info{"nVidia GeForce GTX 750", 512, 1020};
-
-    Matrix A(500, 500, true);
-    Matrix B(500, 500, true);
-
-    if (!canMultiply(A, B))
+    if (argc != 2)
     {
-        std::cout << "Input matrices cannot be multiplyed because of mismatched size" << std::endl;
+        std::cout << "No parameters file. Need add path to file with parameters to arguments" << std::endl;
         return 1;
     }
+
+
+    std::string kernelAddress;
+    GPUInfo info;
+    Matrix A;
+    Matrix B;
+    
+    if (!initFromFile(argv[1], kernelAddress, info, A, B))
+        return 1;
 
     Matrix C(B.width, A.height);
     Matrix D = multiply(A, B);
@@ -65,14 +49,18 @@ int main(int argc, char **argv)
         cl::Platform::get(&platforms);
 
         auto context = cl::Context(CL_DEVICE_TYPE_GPU);
-
         auto devices = context.getInfo<CL_CONTEXT_DEVICES>();
-
         auto commandQueue = cl::CommandQueue(context, devices[0]);
 
-
         // Read source file
-        auto sourceFile = std::ifstream("../../kernels/naive_mult.cl");
+        auto sourceFile = std::ifstream(kernelAddress);
+
+        if (!sourceFile.is_open())
+        {
+            std::cout << "Cannot open kernel file " << kernelAddress << std::endl;
+            return 1;
+        }
+
         auto sourceCode = std::string(std::istreambuf_iterator<char>(sourceFile),
                                       std::istreambuf_iterator<char>());
 
@@ -80,9 +68,7 @@ int main(int argc, char **argv)
 
         // Make program of the source code in the context
         auto program = cl::Program(context, source);
-
         program.build(devices);
-
         auto kernel = cl::Kernel(program, "multiply");
 
         // Create memory buffers
@@ -110,15 +96,82 @@ int main(int argc, char **argv)
         auto end = std::chrono::steady_clock::now();
 
         commandQueue.enqueueReadBuffer(bufferC, CL_TRUE, 0, C.data.size() * sizeof(double), C.data.data());
-
         showResults(end - start, operationsCount(A, B), sqrtNorm(C, D), info);
 
     }
     catch (cl::Error error) 
     {
         std::cout << error.what() << "(" << error.err() << ")" << std::endl;
-        return 2;
+        return 1;
     }
 
     return 0;
+}
+
+
+bool initFromFile(const char* filename, std::string& kernelAddress, GPUInfo& info, Matrix& A, Matrix& B)
+{
+    std::ifstream file(filename);
+
+    if (!file.is_open())
+    {
+        std::cout << "Cannot open file " << filename << std::endl;
+        return false;
+    }
+
+    std::getline(file, kernelAddress);
+
+    std::getline(file, info.name);
+    file >> info.coresCount;
+    file >> info.MHz;
+
+    size_t widthA;
+    size_t heightA;
+    size_t widthB;
+    size_t heightB;
+
+    file >> widthA;
+    file >> heightA;
+    file >> widthB;
+    file >> heightB;
+
+    A = Matrix(widthA, heightA, true);
+    B = Matrix(widthB, heightB, true);
+
+    if (!canMultiply(A, B))
+    {
+        std::cout << "Input matrices cannot be multiplyed because of mismatched size" << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+
+
+void showResults(const std::chrono::duration<long long, std::nano> time,
+    size_t operationsCount,
+    double norm,
+    const GPUInfo& info)
+{
+    auto peac = info.coresCount * info.MHz / 1000;
+    std::cout << "Video Card: " << info.name << std::endl
+        << "Cores: " << info.coresCount << std::endl
+        << "MHz: " << info.MHz << std::endl
+        << "Performance peac (GFLOP/s): " << peac << std::endl << std::endl;
+
+    constexpr double epsilon = 0.000001;
+    std::cout << "SQRT norm: " << norm << ". ";
+    if (norm < epsilon)
+        std::cout << "Result is correct" << std::endl;
+    else
+        std::cout << "Error! Result is not correct! Norm is greater than epsilon = " << epsilon << std::endl;
+
+    auto msCount = std::chrono::duration<double, std::milli>(time).count();
+    auto nsCount = std::chrono::duration<double, std::nano>(time).count();
+    auto performance = operationsCount / nsCount;
+
+    std::cout << "Multiplication time: " << msCount << " ms" << std::endl;
+    std::cout << "Performance: " << operationsCount / nsCount << " GFLOP/s" << std::endl;
+    std::cout << "Theoretical peac: " << performance / peac * 100 << " % of peac" << std::endl;
 }

@@ -31,14 +31,14 @@ The input file has the following data:
 
 ```
 ../../kernels/naive_mult.cl  # Kernel code address
-nVidia GeForce GTX 750  	 # GPU name
-512							 # GPU cores count
-1020						 # GPU cores MHz
+nVidia GeForce GTX 750       # GPU name
+512                          # GPU cores count
+1020                         # GPU cores MHz
 
-500							 # First matrix width
-500							 # First matrix height
-500						     # Second matrix width
-500							 # Second matrix height
+500                          # First matrix width
+500                          # First matrix height
+500                          # Second matrix width
+500                          # Second matrix height
 ```
 
 The input matrices are filled by random float (double) numbers in range [-1000, 1000].

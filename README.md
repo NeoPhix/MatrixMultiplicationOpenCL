@@ -25,6 +25,19 @@ main ../tests/test.txt
 
 Be sure that you set right test filename.
 
+The sample output is:
+```
+Video Card: nVidia GeForce GTX 750
+Cores: 512
+MHz: 1020
+Performance peac (GFLOP/s): 522.24
+
+SQRT norm: 2.01222e-09. Result is correct
+Multiplication time: 0.735443 ms
+Performance: 339.591 GFLOP/s
+Theoretical peac: 65.0259 % of peac
+```
+
 ### Test file structure
 
 The input file has the following data:

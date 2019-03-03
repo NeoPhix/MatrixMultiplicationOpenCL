@@ -1,6 +1,20 @@
 #include <iostream>
 #include <MatrixMultiplicationOpenCL/matrix.h>
+#include <random>
 
+Matrix::Matrix(size_t w, size_t h, bool randomInit)
+    : width(w), height(h), data(w * h)
+{
+    if (randomInit)
+    {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> dis(-1000, 1000);
+
+        for (auto& elem : data)
+            elem = dis(gen);
+    }
+}
 
 Matrix multiply(const Matrix& A, const Matrix& B)
 {
@@ -21,6 +35,26 @@ Matrix multiply(const Matrix& A, const Matrix& B)
     }
 
     return C;
+}
+
+float sqrtNorm(const Matrix& A, const Matrix& B)
+{
+    if ( A.width != B.width || A.height != B.height )
+        return -1;
+
+    float sum = 0.0;
+
+    for (size_t y = 0; y < A.height; ++y)
+    {
+        for (size_t x = 0; x < A.width; ++x)
+        {
+            auto index = A.width * y + x;
+            auto sqr = (A.data[index] - B.data[index]) * (A.data[index] - B.data[index]);
+            sum += sqrt(sqr);
+        }
+    }
+
+    return sum / A.data.size();
 }
 
 void printMatrix(const Matrix& mat)

@@ -9,21 +9,55 @@
 #include <CL/cl.hpp>
 #include <MatrixMultiplicationOpenCL/matrix.h>
 
-int main(int argc, char **argv) 
-{    
-    Matrix A(3, 5);
-    Matrix B(8, 3);
+struct GPUInfo
+{
+    std::string name;
+    size_t coresCount;
+    double MHz;
+};
 
-    for (size_t i = 0; i < A.data.size(); ++i)
-        A.data[i] = 1;
+void showResults(const std::chrono::duration<long long, std::nano> time, 
+                 size_t operationsCount, 
+                 double norm,
+                 const GPUInfo& info)
+{
+    auto peac = info.coresCount * info.MHz / 1000;
+    std::cout << "Video Card: "                 << info.name       << std::endl 
+              << "Cores: "                      << info.coresCount << std::endl
+              << "MHz: "                        << info.MHz        << std::endl
+              << "Performance peac (GFLOP/s): " << peac            << std::endl << std::endl;
 
-    for (size_t i = 0; i < B.data.size(); ++i)
-        B.data[i] = 1;
+    constexpr double epsilon = 0.000001;
+    std::cout << "SQRT norm: " << norm << ". ";
+    if (norm < epsilon)
+        std::cout << "Result is correct" << std::endl;
+    else
+        std::cout << "Error! Result is not correct! Norm is greater than epsilon = " << epsilon << std::endl;
+
+    auto msCount = std::chrono::duration<double, std::milli>(time).count();
+    auto nsCount = std::chrono::duration<double, std::nano>(time).count();
+    auto performance = operationsCount / nsCount;
+
+    std::cout << "Multiplication time: " << msCount                   << " ms"        << std::endl;
+    std::cout << "Performance: "         << operationsCount / nsCount << " GFLOP/s"   << std::endl;
+    std::cout << "Theoretical peac: "    << performance / peac        << " % of peac" << std::endl;
+}
+
+int main(int argc, char **argv)
+{
+    const GPUInfo info{"nVidia GeForce GTX 750", 512, 1020};
+
+    Matrix A(500, 500, true);
+    Matrix B(500, 500, true);
 
     if (!canMultiply(A, B))
-        return -1;
+    {
+        std::cout << "Input matrices cannot be multiplyed because of mismatched size" << std::endl;
+        return 1;
+    }
 
     Matrix C(B.width, A.height);
+    Matrix D = multiply(A, B);
 
     try 
     {
@@ -52,13 +86,13 @@ int main(int argc, char **argv)
         auto kernel = cl::Kernel(program, "multiply");
 
         // Create memory buffers
-        auto bufferA = cl::Buffer(context, CL_MEM_READ_ONLY, A.data.size() * sizeof(float));
-        auto bufferB = cl::Buffer(context, CL_MEM_READ_ONLY, B.data.size() * sizeof(float));
-        auto bufferC = cl::Buffer(context, CL_MEM_WRITE_ONLY, C.data.size() * sizeof(float));
+        auto bufferA = cl::Buffer(context, CL_MEM_READ_ONLY, A.data.size() * sizeof(double));
+        auto bufferB = cl::Buffer(context, CL_MEM_READ_ONLY, B.data.size() * sizeof(double));
+        auto bufferC = cl::Buffer(context, CL_MEM_WRITE_ONLY, C.data.size() * sizeof(double));
 
         // Copy lists A and B to the memory buffers
-        commandQueue.enqueueWriteBuffer(bufferA, CL_TRUE, 0, A.data.size() * sizeof(float), A.data.data());
-        commandQueue.enqueueWriteBuffer(bufferB, CL_TRUE, 0, B.data.size() * sizeof(float), B.data.data());
+        commandQueue.enqueueWriteBuffer(bufferA, CL_TRUE, 0, A.data.size() * sizeof(double), A.data.data());
+        commandQueue.enqueueWriteBuffer(bufferB, CL_TRUE, 0, B.data.size() * sizeof(double), B.data.data());
 
         // Set arguments to kernel
         kernel.setArg(0, bufferA);
@@ -75,20 +109,15 @@ int main(int argc, char **argv)
         commandQueue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
         auto end = std::chrono::steady_clock::now();
 
-        auto r = commandQueue.enqueueReadBuffer(bufferC, CL_TRUE, 0, C.data.size() * sizeof(float), C.data.data());
+        commandQueue.enqueueReadBuffer(bufferC, CL_TRUE, 0, C.data.size() * sizeof(double), C.data.data());
 
-        printMatrix(A);
-        printMatrix(B);
-        printMatrix(C);
-        printMatrix( multiply(A, B) );
+        showResults(end - start, operationsCount(A, B), sqrtNorm(C, D), info);
 
-        auto time = end - start;
-        std::cout << "time: " << std::chrono::duration<double>(time).count() << std::endl;
     }
     catch (cl::Error error) 
     {
         std::cout << error.what() << "(" << error.err() << ")" << std::endl;
-        return -1;
+        return 2;
     }
 
     return 0;

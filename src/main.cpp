@@ -7,50 +7,23 @@
 #include <chrono>
 
 #include <CL/cl.hpp>
-
-struct Matrix
-{
-    Matrix() = delete;
-    Matrix(size_t w, size_t h) : width(w), height(h), data(w * h) {}
-    ~Matrix() = default;
-    size_t width;
-    size_t height;
-    std::vector<float> data;
-};
-
-void printMatrix(const Matrix& mat)
-{
-    for (auto iter = mat.data.begin(); iter != mat.data.end(); ++iter)
-    {
-        if ((iter - mat.data.begin()) % mat.width == 0)
-            std::cout << std::endl;
-
-        std::cout << *iter << " ";
-    }
-
-    std::cout << std::endl;
-}
-
-bool canMultiply(const Matrix& A, const Matrix& B)
-{
-    return A.width == B.height;
-}
+#include <MatrixMultiplicationOpenCL/matrix.h>
 
 int main(int argc, char **argv) 
 {    
-    Matrix A(7, 7);
-    Matrix B(7, 7);
+    Matrix A(3, 5);
+    Matrix B(8, 3);
 
     for (size_t i = 0; i < A.data.size(); ++i)
-        A.data[i] = i;
+        A.data[i] = 1;
 
     for (size_t i = 0; i < B.data.size(); ++i)
-        B.data[i] = i;
+        B.data[i] = 1;
 
     if (!canMultiply(A, B))
         return -1;
 
-    Matrix C(A.height, B.width);
+    Matrix C(B.width, A.height);
 
     try 
     {
@@ -107,6 +80,7 @@ int main(int argc, char **argv)
         printMatrix(A);
         printMatrix(B);
         printMatrix(C);
+        printMatrix( multiply(A, B) );
 
         auto time = end - start;
         std::cout << "time: " << std::chrono::duration<double>(time).count() << std::endl;

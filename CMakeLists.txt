@@ -5,10 +5,12 @@ add_definitions(-std=c++14)
 
 find_package(OpenCL REQUIRED)
 
-include_directories(${OpenCL_INCLUDE_DIRS})
+include_directories(include ${OpenCL_INCLUDE_DIRS})
 
-# Base controller node
-add_executable(main src/main.cpp)
+add_executable(main src/main.cpp 
+	                src/matrix.cpp 
+	                include/MatrixMultiplicationOpenCL/matrix.h)
+
 target_link_libraries(main ${OpenCL_LIBRARY})
 
 
